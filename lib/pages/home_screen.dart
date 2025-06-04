@@ -6,8 +6,10 @@ import '../models/transaction_details.dart';
 import '../services/midtrans_service.dart';
 import '../services/product_service.dart';
 import '../providers/cart_provider.dart';
+import '../widgets/product_card.dart';
 import 'cart_screen.dart';
 import 'profile_page.dart';
+import 'history_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String? userId;
@@ -22,6 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   List<Product> _productList = [];
   String _errorMessage = '';
+  String _selectedCategory = 'Lele';
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -55,6 +59,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  List<Product> get _filteredProducts {
+    if (_searchQuery.isNotEmpty) {
+      return _productList
+          .where((p) =>
+              p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              p.category.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .toList();
+    } else {
+      return _productList
+          .where((p) =>
+              p.category.toLowerCase() == _selectedCategory.toLowerCase())
+          .toList();
+    }
+  }
+
   Widget _buildProductView() {
     return Column(
       children: [
@@ -71,26 +90,45 @@ class _HomeScreenState extends State<HomeScreen> {
               filled: true,
               fillColor: Colors.grey[200],
             ),
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value;
+              });
+            },
           ),
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                setState(() {
+                  _selectedCategory = 'Lele';
+                });
+              },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber,
+                backgroundColor: _selectedCategory == 'Lele'
+                    ? Colors.amber
+                    : Colors.grey[300],
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
               child: const Text('Lele'),
             ),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                setState(() {
+                  _selectedCategory = 'Nila';
+                });
+              },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey[300],
+                backgroundColor: _selectedCategory == 'Nila'
+                    ? Colors.amber
+                    : Colors.grey[300],
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
               child: const Text('Nila'),
             ),
@@ -105,57 +143,71 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: const TextStyle(color: Colors.red, fontSize: 16),
                   ),
                 )
-              : _productList.isEmpty
+              : _filteredProducts.isEmpty
                   ? const Center(child: Text('Tidak ada produk tersedia.'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(8.0),
-                      itemCount: _productList.length,
-                      itemBuilder: (context, index) {
-                        final product = _productList[index];
-                        return ProductCard(
-                          product: product,
-                          onAddToCart: (selectedProduct) {
-                            Provider.of<CartProvider>(context, listen: false).addItem(selectedProduct);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('${selectedProduct.name} ditambahkan ke keranjang!')),
-                            );
-                          },
-                          onBuyNow: (selectedProduct) {
-                            if (widget.userId == null || widget.userId!.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Mohon login untuk melanjutkan pembelian.')),
-                              );
-                              return;
-                            }
-                            if (selectedProduct.stock <= 0) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Maaf, stok produk ini habis.')),
-                              );
-                              return;
-                            }
-
-                            final transactionDetails = TransactionDetails(
-                              orderId: 'SINGLE-BUY-${DateTime.now().millisecondsSinceEpoch}',
-                              amount: selectedProduct.price.toDouble(),
-                              productId: selectedProduct.id,
-                              itemDetails: [
-                                {
-                                  'id': selectedProduct.id,
-                                  'name': selectedProduct.name,
-                                  'price': selectedProduct.price.toDouble(),
-                                  'quantity': 1,
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _filteredProducts.map((product) {
+                          return Container(
+                            width: 250,
+                            margin: const EdgeInsets.symmetric(horizontal: 8),
+                            child: ProductCard(
+                              product: product,
+                              onAddToCart: (selectedProduct) {
+                                Provider.of<CartProvider>(context,
+                                        listen: false)
+                                    .addItem(selectedProduct);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content: Text(
+                                          '${selectedProduct.name} ditambahkan ke keranjang!')),
+                                );
+                              },
+                              onBuyNow: (selectedProduct) {
+                                if (widget.userId == null ||
+                                    widget.userId!.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Mohon login untuk melanjutkan pembelian.')),
+                                  );
+                                  return;
                                 }
-                              ],
-                            );
+                                if (selectedProduct.stock <= 0) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Maaf, stok produk ini habis.')),
+                                  );
+                                  return;
+                                }
 
-                            MidtransService.initiateMidtransPayment(
-                              userId: widget.userId!,
-                              transactionDetails: transactionDetails,
-                              context: context,
-                            );
-                          },
-                        );
-                      },
+                                final transactionDetails = TransactionDetails(
+                                  orderId:
+                                      'SINGLE-BUY-${DateTime.now().millisecondsSinceEpoch}',
+                                  amount: selectedProduct.price.toDouble(),
+                                  productId: selectedProduct.id,
+                                  itemDetails: [
+                                    {
+                                      'id': selectedProduct.id,
+                                      'name': selectedProduct.name,
+                                      'price': selectedProduct.price.toDouble(),
+                                      'quantity': 1,
+                                    }
+                                  ],
+                                );
+
+                                MidtransService.initiateMidtransPayment(
+                                  userId: widget.userId!,
+                                  transactionDetails: transactionDetails,
+                                  context: context,
+                                );
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
         ),
       ],
@@ -169,6 +221,8 @@ class _HomeScreenState extends State<HomeScreen> {
       currentBody = _buildProductView();
     } else if (_selectedIndex == 1) {
       currentBody = CartScreen(userId: widget.userId);
+    } else if (_selectedIndex == 2) {
+      currentBody = HistoryScreen(userId: widget.userId);
     } else {
       currentBody = ProfilePage(userId: widget.userId);
     }
@@ -187,12 +241,16 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Keranjang'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.shopping_cart), label: 'Keranjang'),
+          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Histori'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Consumer<CartProvider>(
@@ -217,7 +275,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     '${cart.itemCount} Item',
-                    style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(width: 15),
                   ElevatedButton(
@@ -227,10 +288,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 10),
                     ),
-                    child: const Text('Bayar', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text('Bayar',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -238,88 +302,6 @@ class _HomeScreenState extends State<HomeScreen> {
           }
           return const SizedBox.shrink();
         },
-      ),
-    );
-  }
-}
-
-class ProductCard extends StatelessWidget {
-  final Product product;
-  final Function(Product) onAddToCart;
-  final Function(Product) onBuyNow;
-
-  const ProductCard({
-    Key? key,
-    required this.product,
-    required this.onAddToCart,
-    required this.onBuyNow,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (product.imagePath.isNotEmpty)
-              Image.network(
-                product.imagePath,
-                height: 100,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const SizedBox(
-                  height: 100,
-                  child: Center(child: Text('Gambar tidak tersedia')),
-                ),
-              ),
-            const SizedBox(height: 10),
-            Text(product.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 5),
-            Text('Kategori: ${product.category}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
-            const SizedBox(height: 5),
-            Text(
-              'Stok: ${product.stock}',
-              style: TextStyle(
-                fontSize: 14,
-                color: product.stock < 5 && product.stock > 0 ? Colors.orange : (product.stock == 0 ? Colors.red : Colors.green),
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              'Rp ${product.price.toStringAsFixed(0)}',
-              style: const TextStyle(fontSize: 16, color: Colors.green, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => onAddToCart(product),
-                  icon: const Icon(Icons.add_shopping_cart),
-                  label: const Text('Tambah'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: product.stock > 0 ? () => onBuyNow(product) : null,
-                  icon: const Icon(Icons.payment),
-                  label: Text(product.stock > 0 ? 'Beli Sekarang' : 'Stok Habis'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: product.stock > 0 ? Colors.deepPurple : Colors.grey,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -1,4 +1,3 @@
-// lib/services/product_service.dart
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
@@ -25,29 +24,24 @@ class ProductService {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         List jsonResponse = json.decode(response.body);
-        print('DEBUG ProductService: Raw JSON response: ${response.body}'); // <<< GUNAKAN print(), bukan log()
-        
         List<Product> products = jsonResponse.map((productJson) {
           try {
-            // Panggil Product.fromJson
-            Product p = Product.fromJson(productJson);
-            print('DEBUG ProductService: Successfully parsed product: ${p.name}');
-            return p;
-          } catch (e) {
-            print('ERROR ProductService: Failed to parse single product: $productJson, Error: $e');
-            // Jika parsing satu item gagal, Anda bisa mengembalikan Product default atau membuang error
-            return Product(id: 'error', name: 'Error Produk', category: '', price: 0, imagePath: '', stock: 0); 
+            return Product.fromJson(productJson);
+          } catch (_) {
+            return Product(
+                id: 'error',
+                name: 'Error Produk',
+                category: '',
+                price: 0,
+                imagePath: '',
+                stock: 0);
           }
         }).toList();
-
-        print('DEBUG ProductService: Final list of products (count): ${products.length}');
         return products;
       } else {
-        print('ERROR ProductService: Failed to load products - Status: ${response.statusCode}, Body: ${response.body}');
-        throw Exception('Failed to load products: ${response.statusCode}');
+        throw Exception('Failed to load products');
       }
     } catch (e) {
-      print('ERROR ProductService: Error fetching products: $e');
       throw Exception('Error fetching products: $e');
     }
   }
@@ -59,21 +53,15 @@ class ProductService {
       final response = await http.put(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'harga': newPrice,
-          'stok': newStock,
-        }),
+        body: jsonEncode({'harga': newPrice, 'stok': newStock}), // <-- diperbaiki
       );
       if (response.statusCode == 200) {
         return true;
       } else {
-        print('ERROR ProductService: Failed to update product - Status: ${response.statusCode}, Body: ${response.body}');
-        throw Exception(
-            'Failed to update product: ${response.statusCode} - ${response.body}');
+        return false;
       }
     } catch (e) {
-      print('ERROR ProductService: Error updating product: $e');
-      throw Exception('Error updating product: $e');
+      return false;
     }
   }
 }

@@ -1,11 +1,9 @@
-// lib/services/midtrans_service.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
 import '../models/transaction_details.dart';
-import '../pages/payments_page.dart';
-
-// import 'dart:convert';
-// import 'package:http/http.dart' as http;
+import '../pages/payments_page.dart';  // pastikan path ini benar
 
 class MidtransService {
   static Future<void> initiateMidtransPayment({
@@ -27,32 +25,24 @@ class MidtransService {
       return;
     }
 
-    print('Memulai inisialisasi pembayaran Midtrans:');
-    print('User ID: $userId');
-    print('Order ID: ${transactionDetails.orderId}');
-    print('Jumlah: ${transactionDetails.amount}');
-    print('Produk ID: ${transactionDetails.productId ?? 'N/A'}');
-    print('Detail Item: ${transactionDetails.itemDetails ?? 'N/A'}');
-
+    // Tentukan IP lokal sesuai platform
     String baseIp;
     if (kIsWeb) {
       baseIp = 'localhost';
     } else if (Theme.of(context).platform == TargetPlatform.android) {
-      baseIp = 'localhost';
+      baseIp = '10.0.2.2';  // IP khusus emulator Android
     } else {
-      baseIp = '192.168.1.16';
+      baseIp = '192.168.1.16'; // Ganti dengan IP lokal kamu
     }
-    final String baseUrl = 'http://$baseIp:3000';
 
-    // Untuk produksi, ganti ini dengan panggilan API backend Anda.
-    /*
-    final url = Uri.parse('$baseUrl/api/payment/initiate');
+    final baseUrl = 'http://$baseIp:3000/api/payment/initiate';
+
     try {
       final response = await http.post(
-        url,
+        Uri.parse(baseUrl),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'user_id': userId,
+        body: jsonEncode({
+          'pengguna_id': userId,
           'order_id': transactionDetails.orderId,
           'amount': transactionDetails.amount,
           'item_details': transactionDetails.itemDetails,
@@ -62,45 +52,36 @@ class MidtransService {
       if (!context.mounted) return;
 
       if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        final String transactionToken = responseData['transaction_token'];
-        
+        final responseData = jsonDecode(response.body);
+        final transactionToken = responseData['dataPayment']?['token'] ?? responseData['token'];
+
+        if (transactionToken == null || transactionToken.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Token transaksi tidak tersedia.')),
+          );
+          return;
+        }
+
+        // Navigasi ke halaman payment dengan token yang didapat
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (ctx) => PaymentsPage(
-              userId: userId,
-              transactionDetails: transactionDetails,
+            builder: (ctx) => PaymentPage(
               midtransToken: transactionToken,
             ),
           ),
         );
       } else {
+        final errorMsg = jsonDecode(response.body)['error'] ?? 'Terjadi kesalahan.';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal inisialisasi pembayaran: ${response.body}')),
+          SnackBar(content: Text('Gagal inisialisasi pembayaran: $errorMsg')),
         );
       }
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Terjadi kesalahan jaringan: $e. Pastikan backend berjalan dan URL benar.')),
+        SnackBar(content: Text('Terjadi kesalahan jaringan: $e')),
       );
     }
-    */
-
-    await Future.delayed(const Duration(seconds: 1));
-    const String simulatedMidtransToken = 'SIMULATED_TOKEN_FOR_DEMO_ABC123';
-
-    if (!context.mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (ctx) => PaymentsPage(
-          userId: userId,
-          transactionDetails: transactionDetails,
-          midtransToken: simulatedMidtransToken,
-        ),
-      ),
-    );
   }
 }
